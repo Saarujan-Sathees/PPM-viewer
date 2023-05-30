@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<head>
+<script>
+    let image, index;
+
+    function readFile(input) {
+        var file = input.target.files[0];
+        if (!file) return;
+
+        var reader = new FileReader();
+        reader.onload = (e) => { parseFile(e.target.result); };
+        reader.readAsText(file);
+    }
+
+    function readSpace(file) {
+        while (file.charAt(index) == '\n' || file.charAt(index) == '\r\n' || file.charAt(index) == ' ' || file.charAt(index) == '\r') {
+            ++index;
+        }
+    }
+
+    function readToken(file) {
+        let result = "";
+        for (index; index < file.length; ++index) {
+            if (file.charAt(index) != ' ' && file.charAt(index) != '\n' && file.charAt(index) != '\r')
+                result += file.charAt(index);
+            else {
+                readSpace(file);
+                return result;
+            }
+        }
+
+        return result;
+    }
+
+    function removeChildren() {
+        let children = document.body.children;
+        for (let i = 0; i < document.body.childElementCount; ++i) {
+            if (children.item(i).tagName == 'IMG') 
+                document.body.removeChild(children.item(i));
+        }
+    }
+
+    async function parseFile(file) {
+        removeChildren();
+
+        index = 0;
+        readToken(file);
+        let canvas = document.createElement("canvas"), width = +readToken(file), height = +readToken(file), 
+            colorMult = 255.0 / +readToken(file), colorArray;
+
+        if (height > 720) {
+            canvas.width = width;
+            canvas.height = height;
+            colorArray = canvas.getContext('2d').createImageData(width, height);
+            for (let i = 0; i < width * height * 4; i += 4) {
+                colorArray.data[i] = +readToken(file) * colorMult;
+                colorArray.data[i + 1] = +readToken(file) * colorMult;
+                colorArray.data[i + 2] = +readToken(file) * colorMult;
+                colorArray.data[i + 3] = 255;
+            }
+        } else {
+            canvas.height = 720;
+            canvas.width = 720 * (width / height);
+            colorArray = canvas.getContext('2d').createImageData(720 * (width / height), 720);
+            for (let j = 0; j < height; ++j) {
+                for (let i = 0; i < width; ++i) {
+                    let r = +readToken(file) * colorMult, g = +readToken(file) * colorMult, b = +readToken(file) * colorMult;
+                    for (let x = i * colorArray.width / width; x < (i + 1) * colorArray.width / width; ++x) {
+                        for (let y = j * colorArray.height / height; y < (j + 1) * colorArray.height / height; ++y) {
+                            let pos = 4 * (x + y * colorArray.width);
+                            colorArray.data[pos] = r;
+                            colorArray.data[pos + 1] = g;
+                            colorArray.data[pos + 2] = b;
+                            colorArray.data[pos + 3] = 255;
+                        }
+                    }
+                }
+            }
+        }
+
+        let maxHeight = Math.max(document.body.clientHeight, document.body.offsetHeight, document.documentElement.offsetHeight,
+                                document.body.scrollHeight, document.documentElement.clientHeight, document.documentElement.scrollHeight);
+        let maxWidth = Math.max(document.body.clientWidth, document.body.offsetWidth, document.documentElement.offsetWidth,
+                    document.body.scrollWidth, document.documentElement.clientWidth, document.documentElement.scrollWidth)
+
+        canvas.getContext('2d').putImageData(colorArray, 0, 0);
+        let img = document.createElement("img");
+        img.src = canvas.toDataURL("image/png");
+        img.id = "image";
+        img.style = `width: ${maxHeight * width / height}px; height: ${maxHeight}px; position: absolute; z-index: 1; 
+                    left: ${(maxWidth - maxHeight * width / height) / 2}; box-shadow: 0 0 30px rgb(0 0 0 / 50%)`;
+
+        let background = document.createElement("img");
+        background.src = img.src;
+        background.style.height = maxHeight * 1.5 + "px";
+        background.style.width = +img.style.width.replace("px", "") * 2 + "px";
+        background.style.filter = "opacity(70%) blur(10px)";
+        background.style.zIndex = "0";
+
+        document.body.appendChild(background);
+        document.body.appendChild(img);
+    }
+    
+</script>
+
+<style>
+    html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
+
+    #button {
+        top: 2%;
+        left: 40%;
+        width: 20%;
+        height: 10%;
+        position: absolute;
+        display: flex;
+        background-color: rgb(255 255 255 / 95%);
+        backdrop-filter: blur(1px);
+        box-shadow: 0 0 5px rgb(0 0 0 / 20%);
+        border-radius: 5px;
+        z-index: 10 !important;
+        align-items: center;
+        justify-content: center;
+        font-size: 100%;
+        font-family: system-ui;
+        color: rgb(40 40 40);
+        transition: all 300ms ease-in-out;
+        cursor: pointer;
+    }
+
+    #button:hover {
+        background-color: rgb(230 230 230 / 95%);
+    }
+
+
+</style>
+</head>
+
+<body style="display: flex; justify-content: center; align-items: center;">
+    <div id="button" onclick="document.getElementById('open-file').click()" aria-readonly="true">Display PPM</div>
+    <input id="open-file" type="file" onchange="readFile(event);" style="display:none">
+</body>
